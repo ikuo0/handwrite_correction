@@ -27,7 +27,7 @@ function Number1D() {
         }
         return true;
     }
-    self.rateSampling = function(x, n) {
+    self.skipSampling = function(x, n) {
         var y = [];
         for(var i = 0; i < x.length; i += 1) {
             if(i % n == 0) {
@@ -87,8 +87,8 @@ function trackingIsTriangle(size, x, y) {
     // 折返しが３個以上ある場合は検査処理を実行
     // 発見した折返しの最初の３個について検査処理を実行
     // ３箇所全てが同じ方向への回転だった場合は三角形だとする
-    var minRad = Math.PI / 10;
-    var maxRad = Math.PI / 1.2;
+    var minRad = Math.PI / 9;
+    var maxRad = Math.PI / 1.5;
     var dataRotate = [];
     var dataRad = [];
     var dataX = []
@@ -260,8 +260,8 @@ function HandWriteFigureCorrection() {
         prt(me.mouseTrackingX);
         prt(me.mouseTrackingY);
         var skipRate = parseInt(me.mouseTrackingX.length / self.constSensitivity);
-        var x = n1d.rateSampling(me.mouseTrackingX, 3);
-        var y = n1d.rateSampling(me.mouseTrackingY, 3);
+        var x = n1d.skipSampling(me.mouseTrackingX, skipRate);
+        var y = n1d.skipSampling(me.mouseTrackingY, skipRate);
         var res = trackingIsTriangle(x.length, x, y);
         
         if(0) {
