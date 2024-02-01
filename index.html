@@ -144,6 +144,7 @@ function HandWriteFigureCorrection() {
     ////////////////////////////////////////
     self.constCanvasId = "draw_area_canvas";
     self.constViewLogId = "log_arrea_view";
+    self.constRingBufferSize = 5;
     self.constMinimumRadian = Math.PI / 9;
     self.constMaximumRadian = Math.PI / 1.5;
     self.constSensitivity = 22;
@@ -262,6 +263,8 @@ function HandWriteFigureCorrection() {
         var skipRate = parseInt(me.mouseTrackingX.length / self.constSensitivity);
         var x = n1d.skipSampling(me.mouseTrackingX, skipRate);
         var y = n1d.skipSampling(me.mouseTrackingY, skipRate);
+        x = x.concat(x.slice(0, me.constRingBufferSize));
+        y = y.concat(y.slice(0, me.constRingBufferSize));
         var res = trackingIsTriangle(x.length, me.constMinimumRadian, me.constMaximumRadian, x, y);
         
         if(0) {
