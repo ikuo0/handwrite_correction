@@ -6,6 +6,16 @@
     <div id="draw_area">
         <canvas id="draw_area_canvas" width="800" height="600" style="background-color: #bbbbbb;"></canvas>
     </div>
+    <div id="config_area">
+        <input type="text" id="config_area_ring_buffer_size"> データの最初と最後を繋げる配列の数<br>
+        <input type="text" id="config_area_minimum_radian"> 最小角度係数（π／n） の n に使用されます<br>
+        <input type="text" id="config_area_maximum_radian"> 最大角度係数（π／n） の n に使用されます<br>
+        <input type="text" id="config_area_sensitivity"> 座標サンプリング係数、大きいと荒く、小さいと細かく座標を検査するようになります<br>
+        <button type="button" id="config_area_reset_button">
+            Reset
+        </button>
+        <br>
+    </div>
     <div id="log_area">
         <textarea id="log_arrea_view" style="width: 200px; height: 600px; background-color: #DDDDDD;">
         </textarea>
@@ -144,10 +154,19 @@ function HandWriteFigureCorrection() {
     ////////////////////////////////////////
     self.constCanvasId = "draw_area_canvas";
     self.constViewLogId = "log_arrea_view";
+    self.constConfigRingBufferSizeId = "config_area_ring_buffer_size";
+    self.constConfigMinimumRadianCoeffId = "config_area_minimum_radian";
+    self.constConfigMaximumRadianCoeffId = "config_area_maximum_radian";
+    self.constConfigSensitivityId = "config_area_sensitivity";
+    self.constConfigResetButtonId = "config_area_reset_button";
     self.constRingBufferSize = 5;
-    self.constMinimumRadian = Math.PI / 9;
-    self.constMaximumRadian = Math.PI / 1.5;
+    self.constMinimumRadianCoeff = 9.0;
+    self.constMaximumRadianCoeff = 1.5;
     self.constSensitivity = 22;
+    self.configRingBufferSize = self.constRingBufferSize;
+    self.configMinimumRadianCoeff = self.constMinimumRadianCoeff;
+    self.configMaximumRadianCoeff = self.constMaximumRadianCoeff;
+    self.configSensitivity = self.constSensitivity;
     
     ////////////////////////////////////////
     // フラグ
@@ -199,6 +218,9 @@ function HandWriteFigureCorrection() {
                 ctx.stroke();
             }
         });
+        document.getElementById(me.constConfigResetButtonId).addEventListener("click", function(event) {
+            me.initConfigInputs();
+        });
     }
     
     self.operationReset = function() {
@@ -212,6 +234,31 @@ function HandWriteFigureCorrection() {
         me.operationMouseRelease = false;
         me.mouseTrackingX = [];
         me.mouseTrackingY = [];
+    }
+    
+    self.updateConfigItem = function(id, configName, configType) {
+        var me = this;
+        var elm = document.getElementById(id);
+        if(configType == "int") {
+            me[configName] = parseInt(elm.value);
+        } else if(configType == "float") {
+            me[configName] = parseFloat(elm.value);
+        }
+    }
+    self.updateConfig = function() {
+        var me = this;
+        var canvas = document.getElementById(me.constConfigRingBufferSizeId);
+        me.updateConfigItem(me.constConfigRingBufferSizeId, "configRingBufferSize", "int");
+        me.updateConfigItem(me.constConfigMinimumRadianCoeffId, "configMinimumRadianCoeff", "float");
+        me.updateConfigItem(me.constConfigMaximumRadianCoeffId, "configMaximumRadianCoeff", "float");
+        me.updateConfigItem(me.constConfigSensitivityId, "configSensitivity", "int");
+    }
+    self.initConfigInputs = function() {
+        var me = this;
+        document.getElementById(me.constConfigRingBufferSizeId).value = String(me.constRingBufferSize);
+        document.getElementById(me.constConfigMinimumRadianCoeffId).value = String(me.constMinimumRadianCoeff);
+        document.getElementById(me.constConfigMaximumRadianCoeffId).value = String(me.constMaximumRadianCoeff);
+        document.getElementById(me.constConfigSensitivityId).value = String(me.constSensitivity);
     }
     
     self.test1 = function() {
@@ -258,14 +305,26 @@ function HandWriteFigureCorrection() {
     ////////////////////////////////////////
     self.drawEnd = function() {
         var me = this;
+        me.updateConfig();
+        prt("configRingBufferSize", me.configRingBufferSize);
+        prt("configMinimumRadianCoeff", me.configMinimumRadianCoeff);
+        prt("configMaximumRadianCoeff", me.configMaximumRadianCoeff);
+        prt("configSensitivity", me.configSensitivity);
+        
         prt(me.mouseTrackingX);
         prt(me.mouseTrackingY);
         var skipRate = parseInt(me.mouseTrackingX.length / self.constSensitivity);
+        prt("skipRate", skipRate);
         var x = n1d.skipSampling(me.mouseTrackingX, skipRate);
         var y = n1d.skipSampling(me.mouseTrackingY, skipRate);
         x = x.concat(x.slice(0, me.constRingBufferSize));
         y = y.concat(y.slice(0, me.constRingBufferSize));
-        var res = trackingIsTriangle(x.length, me.constMinimumRadian, me.constMaximumRadian, x, y);
+        var res = trackingIsTriangle(
+            x.length,
+            Math.PI / me.constMinimumRadianCoeff,
+            Math.PI / me.constMaximumRadianCoeff,
+            x,
+            y);
         
         if(0) {
             me.test1();
@@ -294,6 +353,7 @@ function HandWriteFigureCorrection() {
     
     self.start = function() {
         var me = this;
+        me.initConfigInputs();
         me.setupEvents();
     }
 }
