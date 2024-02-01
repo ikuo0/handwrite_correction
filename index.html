@@ -82,13 +82,11 @@ function angleOf3Points(a, b, c) {
     return Math.acos(cosTheta);
 }
 
-function trackingIsTriangle(size, x, y) {
-    // ３０度以上、９０度未満だったら意図した折返しということにする
+function trackingIsTriangle(size, minRad, maxRad, x, y) {
+    // 折返しと認識する「最小角度」「最大角度」を設定する
     // 折返しが３個以上ある場合は検査処理を実行
     // 発見した折返しの最初の３個について検査処理を実行
     // ３箇所全てが同じ方向への回転だった場合は三角形だとする
-    var minRad = Math.PI / 9;
-    var maxRad = Math.PI / 1.5;
     var dataRotate = [];
     var dataRad = [];
     var dataX = []
@@ -146,6 +144,8 @@ function HandWriteFigureCorrection() {
     ////////////////////////////////////////
     self.constCanvasId = "draw_area_canvas";
     self.constViewLogId = "log_arrea_view";
+    self.constMinimumRadian = Math.PI / 9;
+    self.constMaximumRadian = Math.PI / 1.5;
     self.constSensitivity = 22;
     
     ////////////////////////////////////////
@@ -262,7 +262,7 @@ function HandWriteFigureCorrection() {
         var skipRate = parseInt(me.mouseTrackingX.length / self.constSensitivity);
         var x = n1d.skipSampling(me.mouseTrackingX, skipRate);
         var y = n1d.skipSampling(me.mouseTrackingY, skipRate);
-        var res = trackingIsTriangle(x.length, x, y);
+        var res = trackingIsTriangle(x.length, me.constMinimumRadian, me.constMaximumRadian, x, y);
         
         if(0) {
             me.test1();
