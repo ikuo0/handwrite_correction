@@ -1,0 +1,305 @@
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+</head>
+<body>
+    <div id="draw_area">
+        <canvas id="draw_area_canvas" width="800" height="600" style="background-color: #bbbbbb;"></canvas>
+    </div>
+    <div id="log_area">
+        <textarea id="log_arrea_view" style="width: 200px; height: 600px; background-color: #DDDDDD;">
+        </textarea>
+    </div>
+
+    <script type="text/javascript">
+
+function prt() {
+    console.log.apply(null, arguments);
+}
+
+function Number1D() {
+    var self = this;
+    self.allEqual = function(x, n) {
+        for(var i = 0; i < x.length; i += 1) {
+            if(x[i] != n) {
+                return false;
+            }
+        }
+        return true;
+    }
+    self.rateSampling = function(x, n) {
+        var y = [];
+        for(var i = 0; i < x.length; i += 1) {
+            if(i % n == 0) {
+                y.push(x[i]);
+            }
+        }
+        return y;
+    }
+}
+var n1d = new Number1D();
+
+function Number2D() {
+    var self = this;
+    self.dot = function(a, b) {
+        var dot = 0;
+        for(var i = 0; i < 2; i += 1) {
+            dot += a[i] * b[i];
+        }
+        return dot;
+    }
+}
+var n2d = new Number2D();
+
+////////////////////////////////////////
+// 点A→B→Cの順番に描画した場合にその描画が右回りか左回りかの判定
+// 右回り = 0
+// 左回り = 1
+////////////////////////////////////////
+function rotateDirectionOf3Points(a, b, c) {
+    var dy1 = b.y - a.y;
+    var dx1 = b.x - a.x;
+    var dy2 = c.y - a.y;
+    var dx2 = c.x - a.x;
+    //var leftN = dy1 / dx1;
+    //var rightN = dy2 / dx2;
+    var leftN = dx2 * dy1;
+    var rightN = dx1 * dy2;
+    if(leftN < rightN) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+function angleOf3Points(a, b, c) {
+    var vBA = [a.x - b.x, a.y - b.y];
+    var vBC = [c.x - b.x, c.y - b.y];
+    var dot = n2d.dot(vBA, vBC);
+    var normBA = Math.sqrt(Math.pow(vBA[0], 2) + Math.pow(vBA[1], 2));
+    var normBC = Math.sqrt(Math.pow(vBC[0], 2) + Math.pow(vBC[1], 2));
+    var cosTheta = dot / (normBA * normBC);
+    return Math.acos(cosTheta);
+}
+
+function trackingIsTriangle(size, x, y) {
+    // ３０度以上、９０度未満だったら意図した折返しということにする
+    // 折返しが３個以上ある場合は検査処理を実行
+    // 発見した折返しの最初の３個について検査処理を実行
+    // ３箇所全てが同じ方向への回転だった場合は三角形だとする
+    var minRad = Math.PI / 10;
+    var maxRad = Math.PI / 1.2;
+    var dataRotate = [];
+    var dataRad = [];
+    var dataX = []
+    var dataY = [];
+    var count = 0;
+    for(var i = 0; i < size - 2; i += 1) {
+        var A = {x: x[i + 0], y: y[i + 0]};
+        var B = {x: x[i + 1], y: y[i + 1]};
+        var C = {x: x[i + 2], y: y[i + 2]};
+        var rotate = rotateDirectionOf3Points(A, B, C);
+        var rad = angleOf3Points(A, B, C);
+        if(rad > minRad && rad < maxRad) {
+            dataRotate.push(rotate);
+            dataRad.push(rad);
+            dataX.push(B.x);
+            dataY.push(B.y);
+            count += 1;
+            if(count >= 3) {
+                break;
+            }
+        }
+    }
+    
+    //prt("dataRotate", dataRotate);
+    //prt("dataRad", dataRad);
+    //prt("dataX", dataX);
+    //prt("dataY", dataY);
+    
+    // 折返しとみなせる物が３箇所あり、３箇所の回転方向が同一であるなら三角形の描画とする
+    if(count >= 3 && n1d.allEqual(dataRotate, dataRotate[0])) {
+        return {
+            ok: true,
+            size: dataX.length,
+            x: dataX,
+            y: dataY,
+        }
+    } else {
+        return {
+            ok: false,
+            size: dataX.length,
+            x: dataX,
+            y: dataY,
+        }
+    }
+}
+
+////////////////////////////////////////
+// 手書き図形補正機能クラス
+////////////////////////////////////////
+function HandWriteFigureCorrection() {
+    var self = this;
+    
+    ////////////////////////////////////////
+    // 定数
+    ////////////////////////////////////////
+    self.constCanvasId = "draw_area_canvas";
+    self.constViewLogId = "log_arrea_view";
+    self.constSensitivity = 22;
+    
+    ////////////////////////////////////////
+    // フラグ
+    ////////////////////////////////////////
+    self.operationMousePress = false;
+    self.operationMouseRelease = false;
+    
+    ////////////////////////////////////////
+    // その他変数
+    ////////////////////////////////////////
+    self.mouseTrackingX = [];
+    self.mouseTrackingY = [];
+    
+    ////////////////////////////////////////
+    // イベント設定
+    ////////////////////////////////////////
+    self.setupEvents = function() {
+        var me = this;
+        var canvas = document.getElementById(me.constCanvasId);
+        canvas.addEventListener("mousedown", function(event) {
+            prt("mousedown");
+            me.operationReset();
+            me.mouseTrackingX.push(event.offsetX);
+            me.mouseTrackingY.push(event.offsetY);
+            me.operationMousePress = true;
+            me.operationMouseRelease = false;
+        });
+        canvas.addEventListener("mouseup", function(event) {
+            prt("mouseup");
+            me.operationMousePress = false;
+            me.operationMouseRelease = true;
+            me.drawEnd();
+        });
+        canvas.addEventListener("mousemove", function(event) {
+            if(me.operationMousePress === true) {
+                me.mouseTrackingX.push(event.offsetX);
+                me.mouseTrackingY.push(event.offsetY);
+                
+                var x = me.mouseTrackingX;
+                var y = me.mouseTrackingY;
+                var idxA = x.length - 2;
+                var idxB = x.length - 1;
+                var canvas = document.getElementById(me.constCanvasId);
+                var ctx = canvas.getContext('2d');
+                ctx.beginPath();
+                ctx.strokeStyle = "rgb(0, 0, 0)";
+                ctx.moveTo(x[idxA], y[idxA]);
+                ctx.lineTo(x[idxB], y[idxB]);
+                ctx.stroke();
+            }
+        });
+    }
+    
+    self.operationReset = function() {
+        var me = this;
+        var canvas = document.getElementById(me.constCanvasId);
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = "rgb(187, 187, 187)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        me.operationMousePress = false;
+        me.operationMouseRelease = false;
+        me.mouseTrackingX = [];
+        me.mouseTrackingY = [];
+    }
+    
+    self.test1 = function() {
+        var me = this;
+        var x = me.mouseTrackingX;
+        var y = me.mouseTrackingY;
+        var size = x.length;
+        var idxA = 0;
+        var idxB = parseInt(size / 2);
+        var idxC = size - 1;
+        var canvas = document.getElementById(me.constCanvasId);
+        var ctx = canvas.getContext('2d');
+        ctx.beginPath();
+        ctx.strokeStyle = "rgb(255, 0, 0)";
+        ctx.moveTo(x[idxA], y[idxA]);
+        ctx.lineTo(x[idxB], y[idxB]);
+        ctx.lineTo(x[idxC], y[idxC]);
+        ctx.stroke();
+        
+        var plotX = [x[idxA], x[idxB], x[idxC]];
+        var plotY = [y[idxA], y[idxB], y[idxC]];
+        ctx.font = "16px serif";
+        
+        ctx.fillStyle = "rgb(0, 0, 0)";
+        ctx.fillText("A(" + String(plotX[0]) + ", " + String(plotY[0]) + ")", plotX[0], plotY[0]);
+        ctx.fillText("B(" + String(plotX[1]) + ", " + String(plotY[1]) + ")", plotX[1], plotY[1]);
+        ctx.fillText("C(" + String(plotX[2]) + ", " + String(plotY[2]) + ")", plotX[2], plotY[2]);
+        
+        var rotate = rotateDirectionOf3Points({x: plotX[0], y: plotY[0]}, {x: plotX[1], y: plotY[1]}, {x: plotX[2], y: plotY[2]});
+        var rad = angleOf3Points({x: plotX[0], y: plotY[0]}, {x: plotX[1], y: plotY[1]}, {x: plotX[2], y: plotY[2]});
+        var degree = rad * (180 / Math.PI);
+        var lines = ["rad: " + String(rad), "degree: " + String(degree), "rotate: " + String(rotate)];
+        for(var i = 0; i < plotX.length; i += 1) {
+            var txt = "X=" + String(plotX[i]) + ", Y=" + String(plotY[i]);
+            lines.push(txt);
+        }
+        var logView = document.getElementById(me.constViewLogId);
+        var logText = lines.join("\n");
+        logView.value = lines.join("\n");
+    }
+    
+    ////////////////////////////////////////
+    // 描画終了処理
+    ////////////////////////////////////////
+    self.drawEnd = function() {
+        var me = this;
+        prt(me.mouseTrackingX);
+        prt(me.mouseTrackingY);
+        var skipRate = parseInt(me.mouseTrackingX.length / self.constSensitivity);
+        var x = n1d.rateSampling(me.mouseTrackingX, 3);
+        var y = n1d.rateSampling(me.mouseTrackingY, 3);
+        var res = trackingIsTriangle(x.length, x, y);
+        
+        if(0) {
+            me.test1();
+        } else {
+            var logView = document.getElementById(me.constViewLogId);
+            var lines = ["三角形: " + String(res.ok ? "true": "false")];
+            for(var i = 0; i < res.size; i += 1) {
+                lines.push("座標 " + String(i + 1) + ": " + String(res.x[i]) + ", " + String(res.y[i]));
+            }
+            var logText = lines.join("\n");
+            logView.value = lines.join("\n");
+            
+            if(res.ok === true) {
+                var canvas = document.getElementById(me.constCanvasId);
+                var ctx = canvas.getContext('2d');
+                ctx.beginPath();
+                ctx.strokeStyle = "rgb(255, 0, 255)";
+                ctx.moveTo(res.x[0], res.y[0]);
+                ctx.lineTo(res.x[1], res.y[1]);
+                ctx.lineTo(res.x[2], res.y[2]);
+                ctx.lineTo(res.x[0], res.y[0]);
+                ctx.stroke();
+            }
+        }
+    }
+    
+    self.start = function() {
+        var me = this;
+        me.setupEvents();
+    }
+}
+
+window.addEventListener('load', function(){
+    var x = new HandWriteFigureCorrection();
+    x.start();
+});
+    </script>
+
+</body>
+</html>
